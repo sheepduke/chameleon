@@ -5,14 +5,24 @@
 list in the following form, very similar to DEFVAR:
 (name default-value [docstring])
 
-This macro generates access functions with name given above."
-  (with-gensyms (config-sym profile-sym profile-syms)
+This macro then generates access function with the name defined above.
+
+It also generates some general-purpose functions:
+- (PROFILES) returns a list of defined profiles.
+- (ACTIVE-PROFILE) returns the currently active profile.
+- (SETF ACTIVE-PROFILE PROFILE) sets the active profile to PROFILE.
+- (ADD-PROFILE PROFILE) adds PROFILE to the profile list.
+- (DELETE-PROFILE PROFILE) deletes PROFILE from the profile list.
+
+Note that ADD-PROFILE and DELETE-PROFILE is low-level function and should not
+be used directly."
+  (with-gensyms (config-sym profile-sym profiles-sym)
     `(progn
        (unintern ',config-sym)
        (unintern ',profile-sym)
 
        (defvar ,profile-sym :default "Current profile.")
-       (defvar ,profile-syms '(:default) "All defined profiles.")
+       (defvar ,profiles-sym '(:default) "All defined profiles.")
        (defvar ,config-sym (make-hash-table)
          "Place to hold all defined configurations.")
 
@@ -36,36 +46,51 @@ This macro generates access functions with name given above."
                          ((,value-sym ,foundp-sym)
                           (if ,foundp-sym
                               ,value-sym
-                              ;; (gethash ,name-sym (gethash :default ,config-sym))
-                              "999"))))))
-               
+                              (gethash ,name-sym (gethash :default ,config-sym))))))))
+
                (defun (setf ,(first pair)) (value)
-                 (setf (gethash ',(first pair)(maphash-keys )
+                 (setf (gethash ',(first pair)
                                 (gethash ,profile-sym ,config-sym))
                        value))))
           configs)
 
        ;; Generate functions for developers.
-       (defun profile ()
+       (defun active-profile ()
          "Return currently active profile."
          ,profile-sym)
 
        (defun profiles ()
          "Return a list of available profiles."
-         ,profile-syms)
+         ,profiles-sym)
 
-       (defun (setf profile) (profile)
+       (defun (setf active-profile) (profile)
          "Set the current active profile."
-         (unless (member profile ,profile-syms)
+         (unless (member profile ,profiles-sym)
            (error "Profile ~a is not defined." profile))
          (setf ,profile-sym profile))
 
        (defun add-profile (profile)
-         (push profile ,profile-syms)))))
+         "Add given PROFILE to profile list."
+         (push profile ,profiles-sym))
 
-(defmacro defprofile (name)
-  `(add-profile ,name)
-  )
+       (defun delete-profile (profile)
+         "Delete PROFILE from profile list."
+         (setf ,profiles-sym
+               (delete profile ,profiles-sym)))
+
+       (defun raw-configs ()
+         "Return the raw configuration hash table."
+         ,config-sym))))
+
+(defmacro defprofile (profile-name)
+  "Define a profile with name PROFILE-NAME.
+A profile consists of a set of configurations."
+  `(progn
+     (delete-profile ,profile-name)
+     (setf (gethash ,profile-name (raw-configs))
+           (make-hash-table))
+     ;; TODO set the value of configuration items.
+     (add-profile ,profile-name)))
 
 (defconfig
   (app-root "~/.silver-brain"
@@ -75,17 +100,8 @@ This macro generates access functions with name given above."
 (defprofile :develop
   )
 
-;; (macroexpand
-;;  '(defconfig
-;;    (app-root "~/.silver-brain"
-;;               "Root directory of this application.")
-;;    (pair 1234)))
-
-(macroexpand-1
- '(defprofile :develop ))
-
-;; (add-profile :develop)
-;; (setf (profile) :develop)
-;; (app-root)
-
-;; (setf (profile) :develop)
+(macroexpand
+ '(defconfig
+   (app-root "~/.silver-brain"
+              "Root directory of this application.")
+   (pair 1234)))
