@@ -9,7 +9,7 @@
                 :components
                 ((:file "packages")
                  (:file "chameleon"))))
-  :in-order-to ((test-op (test-op "cl-chameleon/tests"))))
+  :in-order-to ((test-op (test-op "chameleon/tests"))))
 
 (defsystem chameleon/tests
   :description "Tests of chameleon system"
@@ -17,7 +17,8 @@
   :license "GNU GPL v3"
   :version "0.0.1"
   :depends-on (:chameleon :rove)
-  :components ((:module "src"
+  :components ((:module "tests"
                 :components
-                ((:file "packages"))))
+                ((:file "packages")
+                 (:file "chameleon"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))

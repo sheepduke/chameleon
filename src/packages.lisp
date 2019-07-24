@@ -3,4 +3,5 @@
   (:use #:cl
         #:alexandria
         #:trivia)
-  (:export #:defconfig))
+  (:export #:defconfig
+           #:defprofile))

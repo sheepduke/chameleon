@@ -11,25 +11,24 @@ It also generates some general-purpose functions:
 - (PROFILES) returns a list of defined profiles.
 - (ACTIVE-PROFILE) returns the currently active profile.
 - (SETF ACTIVE-PROFILE PROFILE) sets the active profile to PROFILE.
-- (ADD-PROFILE PROFILE) adds PROFILE to the profile list.
-- (DELETE-PROFILE PROFILE) deletes PROFILE from the profile list.
-
-Note that ADD-PROFILE and DELETE-PROFILE is low-level function and should not
-be used directly."
-  (with-gensyms (config-sym profile-sym profiles-sym)
+- (RAW-CONFIGS) returns the hash table that holds all the profiles. Normally
+  this should not be used directly by user.
+"
+  (let ((profile-sym (symbolicate '*profile*))
+        (config-sym (symbolicate '*configs*)))
     `(progn
-       (unintern ',config-sym)
-       (unintern ',profile-sym)
-
-       (defvar ,profile-sym :default "Current profile.")
-       (defvar ,profiles-sym '(:default) "All defined profiles.")
-       (defvar ,config-sym (make-hash-table)
-         "Place to hold all defined configurations.")
-
+       (setf ,profile-sym nil)
+       (setf ,config-sym nil)
+       (defvar ,profile-sym nil "Current profile.")
+       (defvar ,config-sym nil "Place to hold all defined profiles.")
+       (setf ,profile-sym :default)
+       (setf ,config-sym (make-hash-table))
+       
        ;; Generate code to initialize configuration items.
        (setf (gethash ,profile-sym ,config-sym) (make-hash-table))
        ,@(mapcar (lambda (pair)
-                   `(setf (gethash ',(first pair) (gethash ,profile-sym ,config-sym))
+                   `(setf (gethash ',(first pair)
+                                   (gethash ,profile-sym ,config-sym))
                           ,(second pair)))
                  configs)
 
@@ -48,60 +47,46 @@ be used directly."
                               ,value-sym
                               (gethash ,name-sym (gethash :default ,config-sym))))))))
 
-               (defun (setf ,(first pair)) (value)
-                 (setf (gethash ',(first pair)
-                                (gethash ,profile-sym ,config-sym))
-                       value))))
+               ,(with-gensyms (value-sym)
+                  `(defun (setf ,(first pair)) (,value-sym)
+                     (setf (gethash ',(first pair)
+                                    (gethash ,profile-sym ,config-sym))
+                           ,value-sym)))))
           configs)
 
        ;; Generate functions for developers.
-       (defun active-profile ()
+       (defun ,(symbolicate 'active-profile) ()
          "Return currently active profile."
          ,profile-sym)
 
-       (defun profiles ()
+       (defun ,(symbolicate 'profiles) ()
          "Return a list of available profiles."
-         ,profiles-sym)
+         (hash-table-keys ,config-sym))
 
-       (defun (setf active-profile) (profile)
-         "Set the current active profile."
-         (unless (member profile ,profiles-sym)
-           (error "Profile ~a is not defined." profile))
-         (setf ,profile-sym profile))
+       ,(with-gensyms (profile-name-sym)
+          `(defun (setf ,(symbolicate 'active-profile)) (,profile-name-sym)
+             "Set the current active profile."
+             (unless (member ,profile-name-sym
+                             (hash-table-keys ,config-sym))
+               (error "Profile ~a is not defined." ,profile-name-sym))
+             (setf ,profile-sym ,profile-name-sym)))
 
-       (defun add-profile (profile)
-         "Add given PROFILE to profile list."
-         (push profile ,profiles-sym))
-
-       (defun delete-profile (profile)
-         "Delete PROFILE from profile list."
-         (setf ,profiles-sym
-               (delete profile ,profiles-sym)))
-
-       (defun raw-configs ()
+       (defun ,(symbolicate 'raw-configs) ()
          "Return the raw configuration hash table."
          ,config-sym))))
 
-(defmacro defprofile (profile-name)
+(defmacro defprofile (profile-name &body configs)
   "Define a profile with name PROFILE-NAME.
-A profile consists of a set of configurations."
-  `(progn
-     (delete-profile ,profile-name)
-     (setf (gethash ,profile-name (raw-configs))
-           (make-hash-table))
-     ;; TODO set the value of configuration items.
-     (add-profile ,profile-name)))
-
-(defconfig
-  (app-root "~/.silver-brain"
-            "Root directory of this application.")
-  (pair 1234))
-
-(defprofile :develop
-  )
-
-(macroexpand
- '(defconfig
-   (app-root "~/.silver-brain"
-              "Root directory of this application.")
-   (pair 1234)))
+A profile consists of a set of configurations.
+CONFIGS is one or more lists, with each list of the following form:
+(key value)"
+  (with-gensyms (hash-table-sym raw-config-sym)
+    `(let ((,hash-table-sym (make-hash-table))
+           (,raw-config-sym ,(symbolicate '*configs*)))
+       (progn
+         (remhash ,profile-name ,raw-config-sym)
+         (setf (gethash ,profile-name ,raw-config-sym) ,hash-table-sym)
+         ,@(mapcar (lambda (pair)
+                     `(setf (gethash ',(first pair) ,hash-table-sym)
+                            ,(second pair)))
+                   configs)))))
