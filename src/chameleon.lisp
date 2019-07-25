@@ -23,11 +23,11 @@ directly.
   (let ((profile-sym (symbolicate '*profile*))
         (config-sym (symbolicate '*configs*)))
     `(progn
-       (setf ,profile-sym nil)
-       (setf ,config-sym nil)
+       (intern ,(string profile-sym))
+       (intern ,(string config-sym))
        (defvar ,profile-sym nil "Current profile.")
        (defvar ,config-sym nil "Place to hold all defined profiles.")
-       (setf ,profile-sym :default)
+       (setf ,profile-sym nil)
        (setf ,config-sym (make-hash-table))
        
        ;; Generate code to initialize configuration items.
@@ -51,7 +51,7 @@ directly.
                          ((,value-sym ,foundp-sym)
                           (if ,foundp-sym
                               ,value-sym
-                              (gethash ,name-sym (gethash :default ,config-sym))))))))
+                              (gethash ,name-sym (gethash nil ,config-sym))))))))
 
                ,(with-gensyms (value-sym)
                   `(defun (setf ,(first pair)) (,value-sym)
@@ -75,7 +75,8 @@ directly.
              (unless (member ,profile-name-sym
                              (hash-table-keys ,config-sym))
                (error "Profile ~a is not defined." ,profile-name-sym))
-             (setf ,profile-sym ,profile-name-sym))))))
+             (setf ,profile-sym ,profile-name-sym)))
+       nil)))
 
 (defmacro defprofile (profile-name &body configs)
   "Define a profile with name PROFILE-NAME.
@@ -91,4 +92,5 @@ CONFIGS is one or more lists, with each list of the following form:
          ,@(mapcar (lambda (pair)
                      `(setf (gethash ',(first pair) ,hash-table-sym)
                             ,(second pair)))
-                   configs)))))
+                   configs)
+         ,profile-name))))

@@ -1,0 +1,108 @@
+
+
+* Chameleon
+
+** Introduction
+
+Chameleon is a configuration management library shipped with profile support. It mainly help you to:
+
+1. Define a set of configurations with default values.
+2. Define multiple profiles that optionally overriding the default values.
+3. Switch between several profiles just like a chameleon switching its colors!
+
+Access function with the same name of configurations will be generated into the caller package, which makes it easy to access and modify. It makes use of function name completion and no more symbol/keyword/string lookup!
+
+Also, by switching profiles you may use different configurations for unit testing, development, production etc.
+
+** Installation
+
+Currently it is not in the Quicklisp yet. I am working on it.
+
+Please clone this repository to the local project directory of your ASDF.
+
+To load it:
+
+#+BEGIN_SRC lisp
+(ql:quickload :chameleon)
+#+END_SRC
+
+** Usage
+
+Chameleon provides 2 macros that generates corresponding functions: ~defconfig~ and ~defprofile~.
+
+- The ~defconfig~ macro defines the schema of configuration set.
+- The ~defprofile~ macro defines a profile with values of configurations.
+
+*** Defining a Configuration Set
+
+A configuration set contains multiple items, with each consisting of name, default value and optional doc string. The ~defconfig~ macro defines a profile with name ~NIL~ and puts the default values inside.
+
+Talk is cheap, here is the code:
+
+#+BEGIN_SRC lisp
+(defconfig
+  (server-port 5000 "The port of running server.")
+  (database-driver-name :sqlite3 "The driver of database."))
+#+END_SRC
+
+The code above defines 2 configuration items: ~server-port~ and ~database-driver-name~ with default values and optional documentation, just like ~defvar~.
+
+After evaluating the code 2 functions and their ~setf~ versions will be generated, as shown below:
+
+#+BEGIN_SRC lisp
+(server-port)
+ ; => 5000
+
+(documentation 'database-driver-name 'function)
+ ; => "The driver of database."
+
+(setf (server-port) 15000)
+ ; => 15000
+#+END_SRC
+
+The ~defconfig~ macro also generates some other functions:
+
+- ~(profiles)~ returns the defined profiles.
+- ~(active-profile)~ returns the current profile. The default profile is ~NIL~.
+
+And some special variables that might be useful in some corner cases:
+
+- ~*profile*~ represents the current active profile.
+- ~*configs*~ represents profiles and configuration values.
+
+Since ~defconfig~ always generates functions to the current package, it is recommended to evaluate it in a separate package, e.g. ~config~.
+
+*** Defining Some Profiles
+
+A profile consists of values for each configuration item. If an item is missing, the default value will be used.
+
+#+BEGIN_SRC lisp
+;; Define a profile with name :DEVELOP.
+(defprofile :develop
+  (server-port 5001))
+ ; => :DEVELOP
+
+;; Define a profile with name :PRODUCT.
+(defprofile :product
+  (server-port 5002)
+  (database-driver-name :mysql))
+ ; => PRODUCT
+
+;; Get current profile.
+(active-profile)
+ ; => NIL
+
+;; Switch current profile.
+(setf (active-profile) :develop)
+ ; => :DEVELOP
+
+(server-port)
+ ; => 5001 (13 bits, #x1389)
+
+(database-driver-name)
+ ; => :SQLITE3, T
+
+;; Switch back to default profile.
+(setf (active-profile) nil)
+ ; => nil
+#+END_SRC
