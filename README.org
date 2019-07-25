@@ -26,6 +26,12 @@ To load it:
 (ql:quickload :chameleon)
 #+END_SRC
 
+To test it:
+
+#+BEGIN_SRC lisp
+(asdf:test-system :chameleon)
+#+END_SRC
+
 ** Usage
 
 Chameleon provides 2 macros that generates corresponding functions: ~defconfig~ and ~defprofile~.
