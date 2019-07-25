@@ -11,8 +11,14 @@ It also generates some general-purpose functions:
 - (PROFILES) returns a list of defined profiles.
 - (ACTIVE-PROFILE) returns the currently active profile.
 - (SETF ACTIVE-PROFILE PROFILE) sets the active profile to PROFILE.
-- (RAW-CONFIGS) returns the hash table that holds all the profiles. Normally
-  this should not be used directly by user.
+
+In addition, the following special variables are exposed:
+*PROFILE* => the current active profile.
+*CONFIGS* => Hash table of defined configurations.
+
+The key of *CONFIGS* is profile name and the value is a hash table containing
+configuration items and their values. In normal cases, it should not be touched
+directly.
 "
   (let ((profile-sym (symbolicate '*profile*))
         (config-sym (symbolicate '*configs*)))
@@ -69,11 +75,7 @@ It also generates some general-purpose functions:
              (unless (member ,profile-name-sym
                              (hash-table-keys ,config-sym))
                (error "Profile ~a is not defined." ,profile-name-sym))
-             (setf ,profile-sym ,profile-name-sym)))
-
-       (defun ,(symbolicate 'raw-configs) ()
-         "Return the raw configuration hash table."
-         ,config-sym))))
+             (setf ,profile-sym ,profile-name-sym))))))
 
 (defmacro defprofile (profile-name &body configs)
   "Define a profile with name PROFILE-NAME.
