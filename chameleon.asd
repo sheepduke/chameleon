@@ -1,8 +1,8 @@
 (defsystem chameleon
-  :description "Configuration management facilities for Common Lisp."
+  :description "Configuration management facilities for Common Lisp with multiple profile support."
   :author "YUE Daian"
-  :license "GNU GPL v3"
-  :version "0.0.1"
+  :license "MIT"
+  :version "1.0.0"
   :depends-on (:alexandria
                :trivia)
   :components ((:module "src"
