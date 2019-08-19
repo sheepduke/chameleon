@@ -16,11 +16,7 @@ Also, by switching profiles you may use different configurations for unit testin
 
 ** Installation
 
-Currently it is not in the Quicklisp yet. I am working on it.
-
-Please clone this repository to the local project directory of your ASDF.
-
-To load it:
+It is now in Quicklisp! You may simply install it by Quicklisp:
 
 #+BEGIN_SRC lisp
 (ql:quickload :chameleon)
