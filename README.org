@@ -30,14 +30,17 @@ To test it:
 
 ** Usage
 
-Chameleon provides 2 macros that generates corresponding functions: ~defconfig~ and ~defprofile~.
+Chameleon provides 2 macros that generates corresponding functions:
+~defconfig~ and ~defprofile~.
 
 - The ~defconfig~ macro defines the schema of configuration set.
 - The ~defprofile~ macro defines a profile with values of configurations.
 
 *** Defining a Configuration Set
 
-A configuration set contains multiple items, with each consisting of name, default value and optional doc string. The ~defconfig~ macro defines a profile with name ~NIL~ and puts the default values inside.
+A configuration set contains multiple items, with each consisting of name,
+default value and optional doc string. The ~defconfig~ macro defines a profile
+with name ~NIL~ and puts the default values inside.
 
 Talk is cheap, here is the code:
 
@@ -47,9 +50,12 @@ Talk is cheap, here is the code:
   (database-driver-name :sqlite3 "The driver of database."))
 #+END_SRC
 
-The code above defines 2 configuration items: ~server-port~ and ~database-driver-name~ with default values and optional documentation, just like ~defvar~.
+The code above defines 2 configuration items: ~server-port~ and
+~database-driver-name~ with default values and optional documentation, just
+like ~defvar~.
 
-After evaluating the code 2 functions and their ~setf~ versions will be generated, as shown below:
+After evaluating the code 2 functions and their ~setf~ versions will be
+generated, as shown below:
 
 #+BEGIN_SRC lisp
 (server-port)
@@ -72,7 +78,10 @@ And some special variables that might be useful in some corner cases:
 - ~*profile*~ represents the current active profile.
 - ~*configs*~ represents profiles and configuration values.
 
-Since ~defconfig~ always generates functions to the current package, it is recommended to evaluate it in a separate package, e.g. ~config~.
+The macro ~defconfig~ always generates functions to the current package where
+it is called. In addition, the configuration functions defined by it
+(~server-port~ and ~database-driver-name~) will be exported automatically,
+while built-in functions like ~profiles~ will not.
 
 *** Defining Some Profiles
 
