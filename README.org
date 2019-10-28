@@ -45,6 +45,12 @@ with name ~NIL~ and puts the default values inside.
 Talk is cheap, here is the code:
 
 #+BEGIN_SRC lisp
+(defpackage config
+  (:use #:cl
+        #:chameleon))
+
+(in-package config)
+
 (defconfig
   (server-port 5000 "The port of running server.")
   (database-driver-name :sqlite3 "The driver of database."))
@@ -55,20 +61,28 @@ The code above defines 2 configuration items: ~server-port~ and
 like ~defvar~.
 
 After evaluating the code 2 functions and their ~setf~ versions will be
-generated, as shown below:
+generated and exported, as shown below:
 
 #+BEGIN_SRC lisp
-(server-port)
- ; => 5000
+(defpackage use-config
+  (:use #:cl))
 
-(documentation 'database-driver-name 'function)
+(in-package use-config)
+
+(config:server-port)
+ ; => 5000 (13 bits, #x1388)
+
+(documentation 'config:database-driver-name 'function)
  ; => "The driver of database."
 
-(setf (server-port) 15000)
- ; => 15000
+(setf (config:server-port) 15000)
+ ; => 15000 (14 bits, #x3A98)
+
+(config:server-port)
+ ; => 15000 (14 bits, #x3A98)
 #+END_SRC
 
-The ~defconfig~ macro also generates some other functions:
+The ~defconfig~ macro also generates some other functions for convenience:
 
 - ~(profiles)~ returns the defined profiles.
 - ~(active-profile)~ returns the current profile. The default profile is ~NIL~.
@@ -78,16 +92,17 @@ And some special variables that might be useful in some corner cases:
 - ~*profile*~ represents the current active profile.
 - ~*configs*~ represents profiles and configuration values.
 
-The macro ~defconfig~ always generates functions to the current package where
-it is called. In addition, the configuration functions defined by it
-(~server-port~ and ~database-driver-name~) will be exported automatically,
-while built-in functions like ~profiles~ will not.
+Pleaes note that these built-in functions and variables are *not* exported by
+default. Also, Chameleon always generates everything mentioned above to the
+package where it is called.
 
 *** Defining Some Profiles
 
 A profile consists of values for each configuration item. If an item is missing, the default value will be used.
 
 #+BEGIN_SRC lisp
+(in-package config)
+
 ;; Define a profile with name :DEVELOP.
 (defprofile :develop
   (server-port 5001))
