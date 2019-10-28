@@ -52,6 +52,7 @@ directly.
                           (if ,foundp-sym
                               ,value-sym
                               (gethash ,name-sym (gethash nil ,config-sym))))))))
+               (export ',(first pair))
 
                ,(with-gensyms (value-sym)
                   `(defun (setf ,(first pair)) (,value-sym)
