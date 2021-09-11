@@ -1,0 +1,6 @@
+* CHANGELOG
+
+** v1.1.1
+
+- Fix bug that tests fail when run for multiple times.
+- Automatically export ~active-profile~ and ~profiles~.
