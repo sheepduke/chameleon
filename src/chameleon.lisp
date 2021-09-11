@@ -65,10 +65,12 @@ directly.
        (defun ,(symbolicate 'active-profile) ()
          "Return currently active profile."
          ,profile-sym)
+       (export ',(symbolicate 'active-profile))
 
        (defun ,(symbolicate 'profiles) ()
          "Return a list of available profiles."
          (hash-table-keys ,config-sym))
+       (export ',(symbolicate 'profiles))
 
        ,(with-gensyms (profile-name-sym)
           `(defun (setf ,(symbolicate 'active-profile)) (,profile-name-sym)
