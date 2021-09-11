@@ -51,4 +51,4 @@
                  (:file "chameleon"))))
   :perform (test-op (op c)
                     (symbol-call :fiveam :run!
-                                 (find-symbol* :chameleon :chameleon-test))))
+                                 (find-symbol* :chameleon :chameleon-tests))))

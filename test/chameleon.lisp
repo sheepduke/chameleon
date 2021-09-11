@@ -1,5 +1,9 @@
 (defpackage chameleon-tests.config
-  (:use #:cl #:chameleon))
+  (:use #:cl #:chameleon)
+  (:export #:active-profile
+           #:profiles
+           #:server-hostname
+           #:server-port))
 
 (in-package chameleon-tests.config)
 
