@@ -1,7 +1,9 @@
 (defpackage chameleon
-  (:use #:cl
-        #:alexandria
-        #:trivia)
+  (:use #:cl)
+  (:import-from #:alexandria
+                #:with-gensyms
+                #:symbolicate
+                #:hash-table-keys)
   (:export #:defconfig
            #:defprofile))
 
@@ -19,13 +21,15 @@ It also generates some general-purpose functions:
 - (ACTIVE-PROFILE) returns the currently active profile.
 - (SETF ACTIVE-PROFILE PROFILE) sets the active profile to PROFILE.
 
-In addition, the following special variables are exposed:
+In addition, the following special variables can be used:
 *PROFILE* => the current active profile.
 *CONFIGS* => Hash table of defined configurations.
 
 The key of *CONFIGS* is profile name and the value is a hash table containing
 configuration items and their values. In normal cases, it should not be touched
 directly.
+
+All the symbols are NOT automatically exported.
 "
   (let ((g-profile (symbolicate '*profile*))
         (g-config (symbolicate '*configs*)))
@@ -56,10 +60,10 @@ directly.
                        (multiple-value-bind (,g-value ,g-foundp)
                            (gethash ,g-name (gethash ,g-profile ,g-config))
                          (if ,g-foundp
-                             ,g-value
+                             (if (functionp ,g-value)
+                                 (funcall ,g-value)
+                                 ,g-value)
                              (gethash ,g-name (gethash nil ,g-config)))))))
-               (export ',(first pair))
-
                ,(with-gensyms (g-value)
                   `(defun (setf ,(first pair)) (,g-value)
                      (setf (gethash ',(first pair)
@@ -71,13 +75,11 @@ directly.
        (defun ,(symbolicate 'active-profile) ()
          "Return currently active profile."
          ,g-profile)
-       (export ',(symbolicate 'active-profile))
-
+       
        (defun ,(symbolicate 'profiles) ()
          "Return a list of available profiles."
          (hash-table-keys ,g-config))
-       (export ',(symbolicate 'profiles))
-
+       
        ,(with-gensyms (g-profile-name)
           `(defun (setf ,(symbolicate 'active-profile)) (,g-profile-name)
              "Set the current active profile."

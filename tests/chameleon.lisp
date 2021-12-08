@@ -17,6 +17,9 @@
 (defprofile :prod
   (server-port 8080))
 
+(defprofile :funcall
+  (server-port (lambda () 9000)))
+
 (defpackage chameleon-tests
   (:use #:cl
         #:chameleon)
@@ -36,9 +39,9 @@
       "Function server-port defined and return default value 5000"))
 
 (test defprofile
-  (is (fset:equal? (fset:set nil :dev :prod)
+  (is (fset:equal? (fset:set nil :dev :prod :funcall)
                    (fset:convert 'fset:set (chameleon-tests.config:profiles)))
-      "Profiles contain NIL (default), :DEV and :PROD")
+      "Profiles contain NIL (default), :DEV, :PROD and :FUNCALL")
   (is (equal nil (chameleon-tests.config:active-profile))
       "Active profile is NIL"))
 
@@ -73,4 +76,10 @@
   ;; Tear down
   (setf (chameleon-tests.config:active-profile) :dev)
   (setf (chameleon-tests.config:server-port) 5000)
+  (setf (chameleon-tests.config:active-profile) nil))
+
+(test config-with-lambda
+  (setf (chameleon-tests.config:active-profile) :funcall)
+  (is (= 9000 (chameleon-tests.config:server-port))
+      "Function is called when the value is a function")
   (setf (chameleon-tests.config:active-profile) nil))
