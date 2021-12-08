@@ -1,3 +1,10 @@
+(defpackage chameleon
+  (:use #:cl
+        #:alexandria
+        #:trivia)
+  (:export #:defconfig
+           #:defprofile))
+
 (in-package chameleon)
 
 (defmacro defconfig (&body configs)
@@ -20,21 +27,21 @@ The key of *CONFIGS* is profile name and the value is a hash table containing
 configuration items and their values. In normal cases, it should not be touched
 directly.
 "
-  (let ((profile-sym (symbolicate '*profile*))
-        (config-sym (symbolicate '*configs*)))
+  (let ((g-profile (symbolicate '*profile*))
+        (g-config (symbolicate '*configs*)))
     `(progn
-       (intern ,(string profile-sym))
-       (intern ,(string config-sym))
-       (defvar ,profile-sym nil "Current profile.")
-       (defvar ,config-sym nil "Place to hold all defined profiles.")
-       (setf ,profile-sym nil)
-       (setf ,config-sym (make-hash-table))
+       (intern ,(string g-profile))
+       (intern ,(string g-config))
+       (defvar ,g-profile nil "Current profile.")
+       (defvar ,g-config nil "Place to hold all defined profiles.")
+       (setf ,g-profile nil)
+       (setf ,g-config (make-hash-table))
        
        ;; Generate code to initialize configuration items.
-       (setf (gethash ,profile-sym ,config-sym) (make-hash-table))
+       (setf (gethash ,g-profile ,g-config) (make-hash-table))
        ,@(mapcar (lambda (pair)
                    `(setf (gethash ',(first pair)
-                                   (gethash ,profile-sym ,config-sym))
+                                   (gethash ,g-profile ,g-config))
                           ,(second pair)))
                  configs)
 
@@ -44,41 +51,40 @@ directly.
             `(progn
                (defun ,(first pair) ()
                  ,(if (third pair) (third pair) "")
-                 ,(with-gensyms (name-sym value-sym foundp-sym)
-                    `(let ((,name-sym ',(first pair)))
-                       (multiple-value-match
-                           (gethash ,name-sym (gethash ,profile-sym ,config-sym))
-                         ((,value-sym ,foundp-sym)
-                          (if ,foundp-sym
-                              ,value-sym
-                              (gethash ,name-sym (gethash nil ,config-sym))))))))
+                 ,(with-gensyms (g-name g-value g-foundp)
+                    `(let ((,g-name ',(first pair)))
+                       (multiple-value-bind (,g-value ,g-foundp)
+                           (gethash ,g-name (gethash ,g-profile ,g-config))
+                         (if ,g-foundp
+                             ,g-value
+                             (gethash ,g-name (gethash nil ,g-config)))))))
                (export ',(first pair))
 
-               ,(with-gensyms (value-sym)
-                  `(defun (setf ,(first pair)) (,value-sym)
+               ,(with-gensyms (g-value)
+                  `(defun (setf ,(first pair)) (,g-value)
                      (setf (gethash ',(first pair)
-                                    (gethash ,profile-sym ,config-sym))
-                           ,value-sym)))))
+                                    (gethash ,g-profile ,g-config))
+                           ,g-value)))))
           configs)
 
        ;; Generate functions for developers.
        (defun ,(symbolicate 'active-profile) ()
          "Return currently active profile."
-         ,profile-sym)
+         ,g-profile)
        (export ',(symbolicate 'active-profile))
 
        (defun ,(symbolicate 'profiles) ()
          "Return a list of available profiles."
-         (hash-table-keys ,config-sym))
+         (hash-table-keys ,g-config))
        (export ',(symbolicate 'profiles))
 
-       ,(with-gensyms (profile-name-sym)
-          `(defun (setf ,(symbolicate 'active-profile)) (,profile-name-sym)
+       ,(with-gensyms (g-profile-name)
+          `(defun (setf ,(symbolicate 'active-profile)) (,g-profile-name)
              "Set the current active profile."
-             (unless (member ,profile-name-sym
-                             (hash-table-keys ,config-sym))
-               (error "Profile ~a is not defined." ,profile-name-sym))
-             (setf ,profile-sym ,profile-name-sym)))
+             (unless (member ,g-profile-name
+                             (hash-table-keys ,g-config))
+               (error "Profile ~a is not defined." ,g-profile-name))
+             (setf ,g-profile ,g-profile-name)))
        nil)))
 
 (defmacro defprofile (profile-name &body configs)
@@ -86,14 +92,14 @@ directly.
 A profile consists of a set of configurations.
 CONFIGS is one or more lists, with each list of the following form:
 (key value)"
-  (with-gensyms (hash-table-sym raw-config-sym)
-    `(let ((,hash-table-sym (make-hash-table))
-           (,raw-config-sym ,(symbolicate '*configs*)))
+  (with-gensyms (g-hash-table g-raw-config)
+    `(let ((,g-hash-table (make-hash-table))
+           (,g-raw-config ,(symbolicate '*configs*)))
        (progn
-         (remhash ,profile-name ,raw-config-sym)
-         (setf (gethash ,profile-name ,raw-config-sym) ,hash-table-sym)
+         (remhash ,profile-name ,g-raw-config)
+         (setf (gethash ,profile-name ,g-raw-config) ,g-hash-table)
          ,@(mapcar (lambda (pair)
-                     `(setf (gethash ',(first pair) ,hash-table-sym)
+                     `(setf (gethash ',(first pair) ,g-hash-table)
                             ,(second pair)))
                    configs)
          ,profile-name))))

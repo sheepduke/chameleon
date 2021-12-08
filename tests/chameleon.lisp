@@ -17,6 +17,14 @@
 (defprofile :prod
   (server-port 8080))
 
+(defpackage chameleon-tests
+  (:use #:cl
+        #:chameleon)
+  (:import-from #:fiveam
+                #:is
+                #:test
+                #:def-suite*))
+
 (in-package chameleon-tests)
 
 (def-suite* chameleon)
