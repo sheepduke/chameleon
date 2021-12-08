@@ -1,5 +1,10 @@
 * CHANGELOG
 
+** v1.2
+
+- Stop exporting generated symbols.
+- Add support for function invocation when config value is a function.
+
 ** v1.1.1
 
 - Fix bug that tests fail when run for multiple times.

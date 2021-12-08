@@ -14,6 +14,10 @@ Access function with the same name of configurations will be generated into the 
 
 Also, by switching profiles you may use different configurations for unit testing, development, production etc.
 
+*Note*
+
+Since version 1.2, Chameleon no longer export generated symbols (including those configuration accessors) by default. This is to avoid compiler complaints when a configuration item is removed. Make it explicit!
+
 ** Installation
 
 It is now in Quicklisp! You may simply install it by Quicklisp:
@@ -38,30 +42,29 @@ Chameleon provides 2 macros that generates corresponding functions:
 
 *** Defining a Configuration Set
 
-A configuration set contains multiple items, with each consisting of name,
-default value and optional doc string. The ~defconfig~ macro defines a profile
-with name ~NIL~ and puts the default values inside.
+A configuration set contains multiple items, with each consisting of name, default value and optional doc string. The ~defconfig~ macro defines a profile with name ~NIL~ and puts the default values inside.
 
 Talk is cheap, here is the code:
 
 #+BEGIN_SRC lisp
-(defpackage config
-  (:use #:cl
-        #:chameleon))
-
-(in-package config)
-
-(defconfig
-  (server-port 5000 "The port of running server.")
-  (database-driver-name :sqlite3 "The driver of database."))
+  (defpackage config
+    (:use #:cl
+          #:chameleon)
+    (:export #:server-port
+             #:database-driver-name))
+  
+  (in-package config)
+  
+  (defconfig
+    (server-port 5000 "The port of running server.")
+    (database-driver-name (lambda () :sqlite3) "The driver of database."))
 #+END_SRC
 
-The code above defines 2 configuration items: ~server-port~ and
-~database-driver-name~ with default values and optional documentation, just
-like ~defvar~.
+The code above defines 2 configuration items: ~server-port~ and ~database-driver-name~ with default values and optional documentation, similar to ~defvar~. The value can be:
+- A function. In this case, it is evaluated every time the generated accessor function is called. You can make it lazy (evaluated only for the first invocation) by yourself via an external library or wrap your own let-over-lambda.
+- A value. In this case, it is evaluated during the macro expansion, i.e. evaluating ~defconfig~.
 
-After evaluating the code 2 functions and their ~setf~ versions will be
-generated and exported, as shown below:
+After evaluating the code 2 functions and their ~setf~ versions will be generated, as shown below:
 
 #+BEGIN_SRC lisp
 (defpackage use-config
@@ -92,9 +95,7 @@ And some special variables that might be useful in some corner cases:
 - ~*profile*~ represents the current active profile.
 - ~*configs*~ represents profiles and configuration values.
 
-Pleaes note that these built-in functions and variables are *not* exported by
-default. Also, Chameleon always generates everything mentioned above to the
-package where it is called.
+Chameleon always generates everything mentioned above to the package where ~defconfig~ is invoked. Please remember to export them.
 
 *** Defining Some Profiles
 
@@ -110,7 +111,7 @@ A profile consists of values for each configuration item. If an item is missing,
 
 ;; Define a profile with name :PRODUCT.
 (defprofile :product
-  (server-port 5002)
+  (server-port (lambda () 5002))
   (database-driver-name :mysql))
  ; => PRODUCT
 
