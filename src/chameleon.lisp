@@ -7,7 +7,8 @@
            #:defconfig
            #:get-config
            #:set-config
-           #:defprofile))
+           #:defprofile
+           #:eval-once))
 
 (in-package chameleon)
 
@@ -87,3 +88,10 @@
                                                ,g-key
                                                ,g-value)
                 (setf (slot-value ,config-var-name ,g-key) ,g-value))))))
+
+(defmacro eval-once (&body body)
+  "Defines a closure to evaluate BODY for only once."
+  (with-gensyms (g-value)
+    `(let (,g-value)
+       (lambda ()
+         (if ,g-value ,g-value (setf ,g-value (progn ,@body)))))))
