@@ -2,106 +2,88 @@
   (:use #:cl)
   (:import-from #:alexandria
                 #:with-gensyms
-                #:symbolicate
-                #:hash-table-keys)
-  (:export #:defconfig
+                #:symbolicate)
+  (:export #:config
+           #:defconfig
+           #:get-config
+           #:set-config
            #:defprofile))
 
 (in-package chameleon)
 
+(define-condition null-profile-error (error) ()
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             (format stream "Profile is not set"))))
+
+(defgeneric get-config (profile key))
+
+(defmethod get-config ((profile (eql nil)) key)
+  (error 'null-profile-error))
+
+(defgeneric set-config (profile key value))
+
+(defmethod set-config ((profile (eql nil)) key value)
+  (error 'null-profile-error))
+
+(defun make-keyword (thing)
+  (alexandria:make-keyword (string-upcase thing)))
+
+(defun config-item-to-slot (item)
+  (let ((name (first item))
+        (value (second item))
+        (doc (third item)))
+    (append (list name
+                  :initarg (make-keyword name)
+                  :initform value)
+            (if doc (list :documentation doc) nil))))
+
+(defun make-config-var-name (name)
+  (symbolicate "*CONFIG-" (string-upcase name) "*"))
+
 (defmacro defconfig (&body configs)
-  "Defines a configuration set. The CONFIGS is one or more lists, with each
-list in the following form, very similar to DEFVAR:
-(name default-value [docstring])
+  (let* ((profile-sym (symbolicate '*profile*))
+         (config-sym (symbolicate 'config))
+         (configs configs))
+    (with-gensyms (g-config g-value)
+      `(progn
+         (defvar ,profile-sym nil)
 
-This macro then generates access function with the name defined above.
+         (defclass ,config-sym ()
+           ,(mapcar #'config-item-to-slot configs))
 
-It also generates some general-purpose functions:
-- (PROFILES) returns a list of defined profiles.
-- (ACTIVE-PROFILE) returns the currently active profile.
-- (SETF ACTIVE-PROFILE PROFILE) sets the active profile to PROFILE.
+         ,@(mapcan (lambda (item)
+                     `((defun ,(first item) ()
+                         (let ((,g-config (chameleon:get-config
+                                           ,profile-sym
+                                           ',(first item))))
+                           (if (functionp ,g-config)
+                               (funcall ,g-config)
+                               ,g-config)))
 
-In addition, the following special variables can be used:
-*PROFILE* => the current active profile.
-*CONFIGS* => Hash table of defined configurations.
+                       (defun (setf ,(first item)) (,g-value)
+                         (chameleon:set-config ,profile-sym ',(first item) ,g-value))))
+                   configs)))))
 
-The key of *CONFIGS* is profile name and the value is a hash table containing
-configuration items and their values. In normal cases, it should not be touched
-directly.
+(defmacro defprofile (name &body configs)
+  (let* ((name name)
+         (configs configs)
+         (config-var-name (make-config-var-name name)))
+    (with-gensyms (g-profile g-key g-value)
+      `(progn (defparameter ,config-var-name
+                (funcall #'make-instance
+                         ',(symbolicate 'config)
+                         ,@(mapcan (lambda (pair)
+                                     (assert (= (length pair) 2))
+                                     (list (make-keyword (first pair))
+                                           (second pair)))
+                                   configs)))
 
-All the symbols are NOT automatically exported.
-"
-  (let ((g-profile (symbolicate '*profile*))
-        (g-config (symbolicate '*configs*)))
-    `(progn
-       (intern ,(string g-profile))
-       (intern ,(string g-config))
-       (defvar ,g-profile nil "Current profile.")
-       (defvar ,g-config nil "Place to hold all defined profiles.")
-       (setf ,g-profile nil)
-       (setf ,g-config (make-hash-table))
-       
-       ;; Generate code to initialize configuration items.
-       (setf (gethash ,g-profile ,g-config) (make-hash-table))
-       ,@(mapcar (lambda (pair)
-                   `(setf (gethash ',(first pair)
-                                   (gethash ,g-profile ,g-config))
-                          ,(second pair)))
-                 configs)
+              (defmethod chameleon:get-config ((,g-profile (eql ,name))
+                                               ,g-key)
+                (slot-value ,config-var-name ,g-key))
 
-       ;; Generate access function for each configuration item.
-       ,@(mapcar
-          (lambda (pair)
-            `(progn
-               (defun ,(first pair) ()
-                 ,(if (third pair) (third pair) "")
-                 ,(with-gensyms (g-name g-value g-foundp)
-                    `(let ((,g-name ',(first pair)))
-                       (multiple-value-bind (,g-value ,g-foundp)
-                           (gethash ,g-name (gethash ,g-profile ,g-config))
-                         (if ,g-foundp
-                             (if (functionp ,g-value)
-                                 (funcall ,g-value)
-                                 ,g-value)
-                             (gethash ,g-name (gethash nil ,g-config)))))))
-               ,(with-gensyms (g-value)
-                  `(defun (setf ,(first pair)) (,g-value)
-                     (setf (gethash ',(first pair)
-                                    (gethash ,g-profile ,g-config))
-                           ,g-value)))))
-          configs)
-
-       ;; Generate functions for developers.
-       (defun ,(symbolicate 'active-profile) ()
-         "Return currently active profile."
-         ,g-profile)
-       
-       (defun ,(symbolicate 'profiles) ()
-         "Return a list of available profiles."
-         (hash-table-keys ,g-config))
-       
-       ,(with-gensyms (g-profile-name)
-          `(defun (setf ,(symbolicate 'active-profile)) (,g-profile-name)
-             "Set the current active profile."
-             (unless (member ,g-profile-name
-                             (hash-table-keys ,g-config))
-               (error "Profile ~a is not defined." ,g-profile-name))
-             (setf ,g-profile ,g-profile-name)))
-       nil)))
-
-(defmacro defprofile (profile-name &body configs)
-  "Define a profile with name PROFILE-NAME.
-A profile consists of a set of configurations.
-CONFIGS is one or more lists, with each list of the following form:
-(key value)"
-  (with-gensyms (g-hash-table g-raw-config)
-    `(let ((,g-hash-table (make-hash-table))
-           (,g-raw-config ,(symbolicate '*configs*)))
-       (progn
-         (remhash ,profile-name ,g-raw-config)
-         (setf (gethash ,profile-name ,g-raw-config) ,g-hash-table)
-         ,@(mapcar (lambda (pair)
-                     `(setf (gethash ',(first pair) ,g-hash-table)
-                            ,(second pair)))
-                   configs)
-         ,profile-name))))
+              (defmethod chameleon:set-config ((,g-profile (eql ,name))
+                                               ,g-key
+                                               ,g-value)
+                (setf (slot-value ,config-var-name ,g-key) ,g-value))))))
