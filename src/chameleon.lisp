@@ -6,8 +6,6 @@
                 #:symbolicate)
   (:export #:config
            #:defconfig
-           #:get-config
-           #:set-config
            #:defprofile
            #:eval-once))
 
@@ -17,18 +15,6 @@
   (:report (lambda (condition stream)
              (declare (ignore condition))
              (format stream "Profile is not set"))))
-
-(defgeneric get-config (profile key)
-  (:documentation "Get configuration instance with given PROFILE and KEY."))
-
-(defmethod get-config ((profile (eql nil)) key)
-  (error 'null-profile-error))
-
-(defgeneric set-config (profile key value)
-  (:documentation "Set configuration value with given PROFILE, KEY and VALUE."))
-
-(defmethod set-config ((profile (eql nil)) key value)
-  (error 'null-profile-error))
 
 (defun make-keyword (thing)
   "Make a keyword out of given string THING. The keyword is guaranteed
@@ -76,30 +62,41 @@ A typical example is:
   (server-port 5001 \"The server port.\")
   (app-dir \"/tmp\"))"
   (let* ((profile-sym (symbolicate '*profile*))
+         (config-var-sym (symbolicate '*config*))
          (config-sym (symbolicate 'config))
+         (value-sym (symbolicate 'value))
          (configs configs))
-    (with-gensyms (g-config g-value)
-      `(progn
-         (defvar ,profile-sym nil)
+    `(progn
+       ;; Generate *profile* variable.
+       (defvar ,profile-sym nil
+         "The current profile.")
 
-         (defclass ,config-sym ()
-           ,(mapcar #'config-item-to-slot configs))
+       ;; Generate *config* variable.
+       (defvar ,config-var-sym nil
+         "The configuration instance for current profile.")
 
-         ,@(mapcan (lambda (item)
-                     `((defun ,(first item) ()
-                         ,(if-let (docstring (third item))
-                            docstring
-                            "")
-                         (let ((,g-config (chameleon:get-config
-                                           ,profile-sym
-                                           ',(first item))))
-                           (if (functionp ,g-config)
-                               (funcall ,g-config)
-                               ,g-config)))
+       ;; Generate 'config class.
+       (defclass ,config-sym ()
+         ,(mapcar #'config-item-to-slot configs))
 
-                       (defun (setf ,(first item)) (,g-value)
-                         (chameleon:set-config ,profile-sym ',(first item) ,g-value))))
-                   configs)))))
+       ;; Generate generic function switch-profile.
+       (defgeneric ,(symbolicate 'switch-profile) (,(symbolicate 'profile))
+         (:documentation "Switch to new PROFILE."))
+
+       ;; Generate access functions.
+       ,@(mapcan (lambda (item)
+                   `((declaim (inline ,(first item)))
+                     (defun ,(first item) ()
+                       (let ((,config-sym (slot-value ,config-var-sym
+                                                      ',(first item))))
+                         (if (functionp ,config-sym)
+                             (funcall ,config-sym)
+                             ,config-sym)))
+
+                     (defun (setf ,(first item)) (,value-sym)
+                       (setf (slot-value ,config-var-sym ',(first item))
+                             ,value-sym))))
+                 configs))))
 
 (defmacro defprofile (name &body configs)
   "Defines a profile with given NAME. CONFIGS is one or more lists,
@@ -108,25 +105,23 @@ with each following this pattern: (name value).
 The evaluation rule of value follows DEFCONFIG."
   (let* ((name name)
          (configs configs)
-         (config-var-name (symbolicate "*CONFIG-" (string-upcase name) "*")))
-    (with-gensyms (g-profile g-key g-value)
-      `(progn (defparameter ,config-var-name
-                (funcall #'make-instance
-                         ',(symbolicate 'config)
-                         ,@(mapcan (lambda (pair)
-                                     (assert (= (length pair) 2))
-                                     (list (make-keyword (first pair))
-                                           (second pair)))
-                                   configs)))
+         (config-var-name (symbolicate "*CONFIG-" (string-upcase name) "*"))
+         (profile-sym (symbolicate 'profile)))
+    `(progn
+       ;; Generate 'config instance.
+       (defparameter ,config-var-name
+         (funcall #'make-instance
+                  ',(symbolicate 'config)
+                  ,@(mapcan (lambda (pair)
+                              (assert (= (length pair) 2))
+                              (list (make-keyword (first pair))
+                                    (second pair)))
+                            configs)))
 
-              (defmethod chameleon:get-config ((,g-profile (eql ,name))
-                                               ,g-key)
-                (slot-value ,config-var-name ,g-key))
-
-              (defmethod chameleon:set-config ((,g-profile (eql ,name))
-                                               ,g-key
-                                               ,g-value)
-                (setf (slot-value ,config-var-name ,g-key) ,g-value))))))
+       ;; Generate switch-profile method.
+       (defmethod ,(symbolicate 'switch-profile) ((,profile-sym (eql ,name)))
+         (setf ,(symbolicate '*config*) ,config-var-name)
+         (setf ,(symbolicate '*profile*) ,profile-sym)))))
 
 (defmacro eval-once (&body body)
   "Defines a closure to evaluate BODY for only once."
