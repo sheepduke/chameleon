@@ -1,5 +1,12 @@
 * CHANGELOG
 
+** v2.0.0
+
+- Re-implement the logic with CLOS (instead of hash table) and refined generated code.
+- Generate variable ~*profile*~ to store current profile.
+- Generate function ~switch-profile~ for switching profile.
+- Stop generating ~active-profile~ and ~profiles~.
+
 ** v1.2
 
 - Stop exporting generated symbols.

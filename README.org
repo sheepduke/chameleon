@@ -38,6 +38,7 @@ The following example demonstrates a real-world scenario taken from my [[https:/
   (defpackage config
     (:use #:cl)
     (:export #:*profile*
+             #:switch-profile
              #:server-port))
   
   (in-package config)
@@ -105,11 +106,13 @@ A profile consists of values for each configuration item. If an item is missing,
   (in-package config-user)
   
   ;; Set profile to :DEFAULT.
-  (setf config:*profile* :default)
+  (config:switch-profile :default)
   
   (config:server-port) ; => 5000 (13 bits, #x1388)
   
   ;; You may use a lexical binding for temporal profile switching.
+  ;; It is highly recommended to use switch-profile for its extensibility.
+  ;; But this may be useful when writing tests.
   (let ((config:*profile* :dev))
     (server-port)) ; => 5001 (13 bits, #x1389)
   #+END_SRC
