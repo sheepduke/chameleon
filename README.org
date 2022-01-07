@@ -1,135 +1,129 @@
-
-
 * Chameleon
 
 ** Introduction
 
-Chameleon is a configuration management library shipped with profile support. It mainly help you to:
+Chameleon is a configuration management library shipped with profile support. It can help you:
 
-1. Define a set of configurations with default values.
-2. Define multiple profiles that optionally overriding the default values.
+1. Define configuration items with default value.
+2. Define profiles reflecting different scenarios, e.g. development, testing, production etc.
 3. Switch between several profiles just like a chameleon switching its colors!
+4. Access configuration item via functions (instead of bare-bone keywords or strings) to avoid invalid names.
+5. Extend its behavior by providing ~:before~, ~:around~ or ~:after~ methods.
 
-Access function with the same name of configurations will be generated into the caller package, which makes it easy to access and modify. It makes use of function name completion and no more symbol/keyword/string lookup!
+*Compatibility Note*
 
-Also, by switching profiles you may use different configurations for unit testing, development, production etc.
+- Since version 2.0, Chameleon no longer defines ~active-profile~ or ~profiles~. Use ~*profile*~ as the "current" profile (you may create a lexical binding to give it a temporal value). Also, there will be no default ~NIL~ profile. You cannot access any configuration value without first defining a profile.
 
-*Note*
-
-Since version 1.2, Chameleon no longer export generated symbols (including those configuration accessors) by default. This is to avoid compiler complaints when a configuration item is removed. Make it explicit!
+- Since version 1.2, Chameleon no longer exports generated symbols (including those configuration accessors) by default. This is to avoid compiler complaints when a configuration item is removed. Make it explicit!
 
 ** Installation
 
-It is now in Quicklisp! You may simply install it by Quicklisp:
-
 #+BEGIN_SRC lisp
-(ql:quickload :chameleon)
-#+END_SRC
-
-To test it:
-
-#+BEGIN_SRC lisp
-(asdf:test-system :chameleon)
+  ;; Install Chameleon.
+  (ql:quickload :chameleon)
+  
+  ;; Test if it works on your machine.
+  (asdf:test-system :chameleon)
 #+END_SRC
 
 ** Usage
 
-Chameleon provides 2 macros that generates corresponding functions:
-~defconfig~ and ~defprofile~.
+The main entry points of Chameleon are 2 macros: ~defconfig~ and ~defprofile~, which defines the configuration set schema and profiles.
 
-- The ~defconfig~ macro defines the schema of configuration set.
-- The ~defprofile~ macro defines a profile with values of configurations.
+*** Defining a Configuration Set with ~defconfig~
 
-*** Defining a Configuration Set
-
-A configuration set contains multiple items, with each consisting of name, default value and optional doc string. The ~defconfig~ macro defines a profile with name ~NIL~ and puts the default values inside.
-
-Talk is cheap, here is the code:
+The following example demonstrates a real-world scenario taken from my [[https://github.com/sheepduke/silver-brain][Silver Brain]] repository.
 
 #+BEGIN_SRC lisp
   (defpackage config
-    (:use #:cl
-          #:chameleon)
-    (:export #:server-port
-             #:database-driver-name))
+    (:use #:cl)
+    (:export #:*profile*
+             #:server-port))
   
   (in-package config)
   
   (defconfig
+    (data-dir)
+    (log-level :info)
     (server-port 5000 "The port of running server.")
-    (database-driver-name (lambda () :sqlite3) "The driver of database."))
-#+END_SRC
+  #+END_SRC
 
-The code above defines 2 configuration items: ~server-port~ and ~database-driver-name~ with default values and optional documentation, similar to ~defvar~. The value can be:
-- A function. In this case, it is evaluated every time the generated accessor function is called. You can make it lazy (evaluated only for the first invocation) by yourself via an external library or wrap your own let-over-lambda.
-- A value. In this case, it is evaluated during the macro expansion, i.e. evaluating ~defconfig~.
+The code above defines a configuration set with 3 items. Each item briefly follows the pattern of ~defvar~, i.e. ~(name [initial-value [documentation]])~:
 
-After evaluating the code 2 functions and their ~setf~ versions will be generated, as shown below:
+- ~name~ is a symbol not evaluated.
+- ~initial-value~ is a form and always evaluated. Unlike ~defvar~, it is evaluated during every macro expansion.
+- ~documentation~ is a string, not evaluated.
 
-#+BEGIN_SRC lisp
-(defpackage use-config
-  (:use #:cl))
+It will generate:
 
-(in-package use-config)
+- A variable ~*profile*~ indicating current profile name. Defaults to ~NIL~.
+- A class ~config~ containing configuration items as slots.
+- A variable ~*config*~ indicating current configuration instance. Defaults to ~NIL~.
+- A generic function ~switch-profile~ that is used to switch the profile.
+- 3 zero-arity access functions ~data-dir~, ~server-print-access-log-p~ and ~server-port~ and their ~setf~ version.
 
-(config:server-port)
- ; => 5000 (13 bits, #x1388)
+You need to manually export these symbols in order to use them outside the current package.
 
-(documentation 'config:database-driver-name 'function)
- ; => "The driver of database."
+**Note**
 
-(setf (config:server-port) 15000)
- ; => 15000 (14 bits, #x3A98)
+The access functions will check the value of configuration item. If the value is a function, i.e. ~functionp~ returns ~T~, it will be invoked and the value is returned. Otherwise, the value is directly returned. It is useful in scenarios where you want to dynamically compute the value of a configuration item.
 
-(config:server-port)
- ; => 15000 (14 bits, #x3A98)
-#+END_SRC
+*** Defining Some Profiles with ~defprofile~
 
-The ~defconfig~ macro also generates some other functions for convenience:
-
-- ~(profiles)~ returns the defined profiles.
-- ~(active-profile)~ returns the current profile. The default profile is ~NIL~.
-
-And some special variables that might be useful in some corner cases:
-
-- ~*profile*~ represents the current active profile.
-- ~*configs*~ represents profiles and configuration values.
-
-Chameleon always generates everything mentioned above to the package where ~defconfig~ is invoked. Please remember to export them.
-
-*** Defining Some Profiles
-
-A profile consists of values for each configuration item. If an item is missing, the default value will be used.
+A profile consists of values for each configuration item. If an item is missing, the default value will be used. Given the ~defconfig~ code above, we may write:
 
 #+BEGIN_SRC lisp
-(in-package config)
-
-;; Define a profile with name :DEVELOP.
-(defprofile :develop
-  (server-port 5001))
- ; => :DEVELOP
-
-;; Define a profile with name :PRODUCT.
-(defprofile :product
-  (server-port (lambda () 5002))
-  (database-driver-name :mysql))
- ; => PRODUCT
-
-;; Get current profile.
-(active-profile)
- ; => NIL
-
-;; Switch current profile.
-(setf (active-profile) :develop)
- ; => :DEVELOP
-
-(server-port)
- ; => 5001 (13 bits, #x1389)
-
-(database-driver-name)
- ; => :SQLITE3, T
-
-;; Switch back to default profile.
-(setf (active-profile) nil)
- ; => nil
+  ;; Define a profile with default values.
+  (defprofile :default)
+  
+  ;; Define a profile with name :DEV.
+  (defprofile :dev
+    (server-port 5001)
+    (data-dir (truename "~/temp/silver-brain/"))
+    (log-level (lambda ()
+                 (print "Evaluated on every access")
+                 (print "Definitely useless for simply T")
+                 :debug))))
+  
+  ;; Port equals to the default value, i.e. 5000.
+  (defprofile :prod
+    (data-dir (truename "~/.silver-brain/")))
+  
+  ;; When running integration tests, the port is randomly picked.
+  ;; 
+  ;; Macro EVAL-ONCE is no more than a let-over-lambda that caches the
+  ;; evaluation result. The function FIND-PORT:FIND-PORT is invoked only
+  ;; once.
+  (defprofile :test
+    (server-port (eval-once (find-port:find-port))))
 #+END_SRC
+
+#+BEGIN_SRC lisp
+  (defpackage config-user
+    (:use #:cl))
+  
+  (in-package config-user)
+  
+  ;; Set profile to :DEFAULT.
+  (setf config:*profile* :default)
+  
+  (config:server-port) ; => 5000 (13 bits, #x1388)
+  
+  ;; You may use a lexical binding for temporal profile switching.
+  (let ((config:*profile* :dev))
+    (server-port)) ; => 5001 (13 bits, #x1389)
+  #+END_SRC
+
+*** Extending Behavior with ~defmethod~
+
+The ~switch-profile~ generated by ~defconfig~ is a generic function. Each ~defprofile~ generates a implementation method that sets ~*profile*~ and ~*config*~. You may implement your own method to extend its behavior.
+
+#+BEGIN_SRC lisp
+  (in-package config-user)
+  
+  (defmethod switch-profile :after (profile)
+    "Reset the log level of log4cl."
+    (log4cl:configure (log-level)))
+#+END_SRC
+
+Then, every time you call ~switch-profile~ to change the current profile, this method is called after the profile is set, thus the log4cl get reconfigured.
