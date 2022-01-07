@@ -43,19 +43,20 @@ docstrings are evaluated during macro expansion.
 Beneath the surface, DEFCONFIG actually generates the following stuff:
 
 1. A variable *PROFILE*. It stores the current profile which is
-   usually a keyword.
+   desired to be a keyword.
 
-2. A class named CONFIG. Each item maps to a slot definition:
+2. A variable *CONFIG*. It stores the current configuration instance.
+
+3. A class named CONFIG. Each item maps to a slot definition:
    - name maps to slot name.
    - initial-value maps to :initform argument.
    - docstring maps to :documentation property of the slot.
 
-3. A zero-arity function (and its setf version) for each name. The
-   function returns corresponding value according to *PROFILE*. When
-   the value itself is a function, it is called every time and the
-   value is returned. Otherwise, the value is directly returned.
-
-   This is useful for evaluating an expression every time.
+4. A zero-arity inline function (and its setf version) for each
+   name. The function returns configuration value of current
+   profile. When the value itself is a function, it is called every
+   time and the value is returned. Otherwise, the value is directly
+   returned.
 
 A typical example is:
 (defconfig
@@ -102,14 +103,19 @@ A typical example is:
   "Defines a profile with given NAME. CONFIGS is one or more lists,
 with each following this pattern: (name value).
 
-The evaluation rule of value follows DEFCONFIG."
+The evaluation rule of value follows DEFCONFIG.
+
+It generates a variable *CONFIG-<NAME>* and a method SWITCH-PROFILE.
+
+You may provide :before, :around or :after methods to SWITCH-PROFILE
+to insert some code."
   (let* ((name name)
          (configs configs)
          (config-var-name (symbolicate "*CONFIG-" (string-upcase name) "*"))
          (profile-sym (symbolicate 'profile)))
     `(progn
        ;; Generate 'config instance.
-       (defparameter ,config-var-name
+       (defvar ,config-var-name
          (funcall #'make-instance
                   ',(symbolicate 'config)
                   ,@(mapcan (lambda (pair)
