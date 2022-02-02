@@ -12,7 +12,7 @@ Chameleon is a configuration management library shipped with profile support. It
 
 *Compatibility Note*
 
-- Since version 2.0, Chameleon no longer defines ~active-profile~ or ~profiles~. Use ~*profile*~ as the "current" profile (you may create a lexical binding to give it a temporal value). Also, there will be no default ~NIL~ profile. You cannot access any configuration value without first defining a profile.
+- Since version 2.0, Chameleon no longer defines ~active-profile~ or ~profiles~. Use ~*profile*~ as the "current" profile and ~*config*~ holds the "current" configuration instance. Also, there will be no default ~NIL~ profile. You cannot access any configuration value without first defining a profile.
 
 - Since version 1.2, Chameleon no longer exports generated symbols (including those configuration accessors) by default. This is to avoid compiler complaints when a configuration item is removed. Make it explicit!
 
@@ -113,12 +113,6 @@ Given the ~defconfig~ code above, we may write:
   (config:switch-profile :default)
   
   (config:server-port) ; => 5000 (13 bits, #x1388)
-  
-  ;; You may use a lexical binding for temporal profile switching.
-  ;; It is highly recommended to use switch-profile for its extensibility.
-  ;; But this may be useful when writing tests.
-  (let ((config:*profile* :dev))
-    (server-port)) ; => 5001 (13 bits, #x1389)
   #+END_SRC
 
 *** Extending Behavior with ~defmethod~
