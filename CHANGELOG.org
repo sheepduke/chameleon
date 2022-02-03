@@ -3,6 +3,7 @@
 ** v2.1.1
 
 - Fix wrong package of ~with-profile~ macro.
+- Fix invalid ASDF file.
 
 ** v2.1.0
 
