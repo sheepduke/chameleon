@@ -85,8 +85,8 @@ A typical example is:
          "The configuration instance for current profile.")
 
        ;; Generate with-profile macro.
-       (defmacro with-profile (,profile-sym
-                               &body ,(symbolicate 'body))
+       (defmacro ,(symbolicate 'with-profile)
+           (,profile-sym &body ,(symbolicate 'body))
          "Temporally switch to given PROFILE and evaluate BODY."
          `(let ((,',(intern "*PROFILE*" package) ,,profile-sym)
                 (,',(intern "*CONFIG*" package)
