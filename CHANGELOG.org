@@ -1,5 +1,9 @@
 * CHANGELOG
 
+** v2.1.1
+
+- Fix wrong package of ~with-profile~ macro.
+
 ** v2.1.0
 
 - Add ~with-profile~ macro.
