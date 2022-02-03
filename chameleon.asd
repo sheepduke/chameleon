@@ -15,12 +15,12 @@
   :license "MIT"
   :author "YUE Daian"
   :depends-on (#:chameleon
-               #:fiveam
-               #:fset)
+               #:fiveam)
   :serial t
   :components ((:module "tests"
                 :components
-                ((:file "chameleon"))))
+                ((:file "config")
+                 (:file "chameleon"))))
   :perform (test-op (op c)
                     (symbol-call :fiveam :run!
                                  (find-symbol* :chameleon :chameleon-tests))))
