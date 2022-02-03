@@ -1,5 +1,9 @@
 * CHANGELOG
 
+** v2.1.0
+
+- Add ~with-profile~ macro.
+
 ** v2.0.0
 
 - Re-implement the logic with CLOS (instead of hash table) and refined generated code.
