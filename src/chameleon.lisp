@@ -32,6 +32,9 @@ pair in config definition."
                   :initform value)
             (if doc (list :documentation doc) nil))))
 
+(defun make-config-var-name (name)
+  (symbolicate "*CONFIG-" (string-upcase name) "*"))
+
 (defmacro defconfig (&body configs)
   "Defines a configuration. The body CONFIGS contains multiple items,
 with each following this pattern:
@@ -58,30 +61,44 @@ Beneath the surface, DEFCONFIG actually generates the following stuff:
    time and the value is returned. Otherwise, the value is directly
    returned.
 
+5. Some other helper functions and macros:
+   - with-profile
+
 A typical example is:
 (defconfig
   (server-port 5001 \"The server port.\")
   (app-dir \"/tmp\"))"
-  (let* ((profile-sym (symbolicate '*profile*))
+  (let* ((profile-var-sym (symbolicate '*profile*))
+         (profile-sym (symbolicate 'profile))
          (config-var-sym (symbolicate '*config*))
          (config-sym (symbolicate 'config))
          (value-sym (symbolicate 'value))
-         (configs configs))
+         (configs configs)
+         (package *package*))
     `(progn
        ;; Generate *profile* variable.
-       (defvar ,profile-sym nil
+       (defvar ,profile-var-sym nil
          "The current profile.")
 
        ;; Generate *config* variable.
        (defvar ,config-var-sym nil
          "The configuration instance for current profile.")
 
+       ;; Generate with-profile macro.
+       (defmacro with-profile (,profile-sym
+                               &body ,(symbolicate 'body))
+         "Temporally switch to given PROFILE and evaluate BODY."
+         `(let ((,',(intern "*PROFILE*" package) ,,profile-sym)
+                (,',(intern "*CONFIG*" package)
+                  ,(eval-config-var ,profile-sym ,package)))
+            ,@,(symbolicate 'body)))
+
        ;; Generate 'config class.
        (defclass ,config-sym ()
          ,(mapcar #'config-item-to-slot configs))
 
        ;; Generate generic function switch-profile.
-       (defgeneric ,(symbolicate 'switch-profile) (,(symbolicate 'profile))
+       (defgeneric ,(symbolicate 'switch-profile) (,profile-sym)
          (:documentation "Switch to new PROFILE."))
 
        ;; Generate access functions.
@@ -111,7 +128,7 @@ You may provide :before, :around or :after methods to SWITCH-PROFILE
 to insert some code."
   (let* ((name name)
          (configs configs)
-         (config-var-name (symbolicate "*CONFIG-" (string-upcase name) "*"))
+         (config-var-name (make-config-var-name name))
          (profile-sym (symbolicate 'profile)))
     `(progn
        ;; Generate 'config instance.
@@ -135,3 +152,8 @@ to insert some code."
     `(let (,g-value)
        (lambda ()
          (if ,g-value ,g-value (setf ,g-value (progn ,@body)))))))
+
+(defun eval-config-var (profile package)
+  (eval (find-symbol
+         (string-upcase (format nil "*CONFIG-~a*" profile))
+         package)))
