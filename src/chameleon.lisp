@@ -11,6 +11,9 @@
 
 (in-package chameleon)
 
+(defvar *profile-type* :variable
+  "Type of form to use for profile definitions (:VARIABLE or :PARAMETER).")
+
 (define-condition null-profile-error (error) ()
   (:report (lambda (condition stream)
              (declare (ignore condition))
@@ -132,14 +135,17 @@ to insert some code."
          (profile-sym (symbolicate 'profile)))
     `(progn
        ;; Generate 'config instance.
-       (defvar ,config-var-name
-         (funcall #'make-instance
-                  ',(symbolicate 'config)
-                  ,@(mapcan (lambda (pair)
-                              (assert (= (length pair) 2))
-                              (list (make-keyword (first pair))
-                                    (second pair)))
-                            configs)))
+       (,(ecase *profile-type*
+           (:parameter 'defparameter)
+           (:variable 'defvar))
+        ,config-var-name
+        (funcall #'make-instance
+                 ',(symbolicate 'config)
+                 ,@(mapcan (lambda (pair)
+                             (assert (= (length pair) 2))
+                             (list (make-keyword (first pair))
+                                   (second pair)))
+                           configs)))
 
        ;; Generate switch-profile method.
        (defmethod ,(symbolicate 'switch-profile) ((,profile-sym (eql ,name)))
