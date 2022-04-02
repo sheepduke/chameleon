@@ -14,6 +14,8 @@
 (defvar *profile-type* :variable
   "Type of form to use for profile definitions (:VARIABLE or :PARAMETER).")
 
+(defvar *switch-profiles* nil "Automatically switch to a profile when defining it.")
+
 (define-condition null-profile-error (error) ()
   (:report (lambda (condition stream)
              (declare (ignore condition))
@@ -150,7 +152,11 @@ to insert some code."
        ;; Generate switch-profile method.
        (defmethod ,(symbolicate 'switch-profile) ((,profile-sym (eql ,name)))
          (setf ,(symbolicate '*config*) ,config-var-name)
-         (setf ,(symbolicate '*profile*) ,profile-sym)))))
+         (setf ,(symbolicate '*profile*) ,profile-sym))
+
+       ;; Optionally switch to the newly defined profile.
+       ,(when *switch-profiles*
+          `(,(symbolicate 'switch-profile) ,name)))))
 
 (defmacro eval-once (&body body)
   "Defines a closure to evaluate BODY for only once."
