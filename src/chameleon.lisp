@@ -12,9 +12,36 @@
 (in-package chameleon)
 
 (defvar *profile-type* :variable
-  "Type of form to use for profile definitions (:VARIABLE or :PARAMETER).")
+  "Type of form to use for profile definitions (:VARIABLE or :PARAMETER).
 
-(defvar *switch-profiles* nil "Automatically switch to a profile when defining it.")
+This special controls whether the variable that contains a configuration
+profile is defined using DEFVAR or DEFPARAMETER. When set to :VARIABLE,
+DEFPROFILE will define the profile using DEFVAR. When the form is re-
+evaluated the profile will not be updated, according to the semantics
+of DEFVAR.
+
+When set to :PARAMETER, DEFPROFILE will define profile variables using
+DEFPARAMETER, updating the active instance of the profile when the form
+is re-evaluated. This is useful for interactive development when modifying
+configuration profiles in the running image.
+
+The default value of *PROFILE-TYPE* is :VARIABLE.")
+
+(defvar *switch-profiles* nil
+  "Automatically switch to a profile when defining it (generalised boolean).
+
+This variable controls whether evaluating a DEFPROFILE form activates the
+new profile using a call to SWITCH-PROFILE. This facilitates interactive
+development by allowing redefining and activating a profile as a single
+operation. When a true value, profiles will be activated when evaluating
+a DEFPROFILE form, when NIL the profile will still be defined, but not
+activated.
+
+This behaviour respects the setting of *PROFILE-TYPE*, i.e. to redefine and
+activate an updated profile, *PROFILE-TYPE* should be :PARAMETER and
+ *SWITCH-PROFILES* should be T.
+
+The default value of *SWITCH-PROFILES* is NIL.")
 
 (define-condition null-profile-error (error) ()
   (:report (lambda (condition stream)
